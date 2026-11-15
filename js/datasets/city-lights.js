@@ -1,6 +1,6 @@
 const SERVICE_URL = "http://127.0.0.1:8001/api/city-lights";
 const NOT_RUNNING = "The night lights service did not answer. Start it in a terminal with your NASA token: "
-    + "py city_lights_api.py path-to-token.txt";
+    + "py py/city_lights_api.py path-to-token.txt";
 
 // Accepts a Date, a date string such as "2015-01-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {

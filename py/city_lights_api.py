@@ -27,9 +27,10 @@ HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resol
 # Used when no token is given on the command line.
 TOKEN_FILE = HERE / "APIToken.txt"
 NO_TOKEN = ("A NASA Earthdata token is needed. Give it when starting, either as the path to a file that holds it "
-            "or as the token itself, for example: city_lights_api path-to-token.txt")
+            "or as the token itself, for example: py py/city_lights_api.py path-to-token.txt")
 given_token = None
-CACHE_DIR = HERE / "city_lights_cache"
+# The cache sits in the project's top folder, one level above this script.
+CACHE_DIR = HERE.parent / "city_lights_cache"
 CATALOG_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
 YEARLY_NIGHT_LIGHTS = "C3860065683-LAADS"
 DATASET = "HDFEOS/GRIDS/VIIRS_Grid_DNB_2d/Data Fields/AllAngle_Composite_Snow_Free"

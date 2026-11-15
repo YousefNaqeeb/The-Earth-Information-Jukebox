@@ -1,5 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8000/api/ocean";
-const NOT_RUNNING = "The ocean service did not answer. Start it in a terminal with: node server.mjs";
+const NOT_RUNNING = "The ocean service did not answer. Start it in a terminal with: node js/datasets/server.mjs";
 
 // Accepts a Date, a date string such as "2007-03-25", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {

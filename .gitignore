@@ -7,6 +7,7 @@ APIToken.txt
 # Data the services fetch from NASA and keep for reuse.
 city_lights_cache/
 lightning_cache/
+pollution_cache/
 
 # PyInstaller build output.
 build/
