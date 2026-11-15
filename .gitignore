@@ -1,3 +1,19 @@
 cookies.txt
-cookies.txt
 laads-test.txt
+
+# NASA Earthdata token, never commit.
+APIToken.txt
+
+# Data the services fetch from NASA and keep for reuse.
+city_lights_cache/
+lightning_cache/
+
+# PyInstaller build output.
+build/
+dist/
+*.spec
+*.exe
+
+# Python's own compiled files.
+__pycache__/
+*.pyc
