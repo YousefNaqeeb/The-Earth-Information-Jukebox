@@ -16,7 +16,7 @@ import requests
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.responses import JSONResponse
 
 from processing import map_linear, map_logarithmic, normalize_measurements
 
@@ -58,17 +58,6 @@ MAX_REQUESTS = 28
 MAX_ROUNDS = 12
 DEFAULT_LOW_HZ = 220
 DEFAULT_HIGH_HZ = 880
-SITE_TYPES = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".svg": "image/svg+xml",
-    ".mp3": "audio/mpeg",
-    ".wav": "audio/wav"
-}
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
@@ -428,15 +417,9 @@ def ready():
     return JSONResponse({"ready": warm.is_set()}, status_code=200 if warm.is_set() else 503)
 
 
-# Serves the site's own pages and scripts, so a test page can be opened straight from this service.
-# Only web file types inside this folder are served, and nothing hidden.
-@app.get("/{path:path}")
-def site_file(path: str):
-    file = (HERE / path).resolve()
-    inside = file.is_relative_to(HERE) and not any(part.startswith(".") for part in file.relative_to(HERE).parts)
-    if not inside or file.suffix.lower() not in SITE_TYPES or not file.is_file():
-        return PlainTextResponse("Not found", status_code=404)
-    return Response(file.read_bytes(), media_type=SITE_TYPES[file.suffix.lower()], headers={"Cache-Control": "no-store"})
+@app.exception_handler(404)
+def unknown_address(request, error):
+    return JSONResponse({"error": "Unknown API address."}, status_code=404)
 
 
 if __name__ == "__main__":
@@ -457,8 +440,6 @@ if __name__ == "__main__":
     except ServiceError as error:
         raise SystemExit(error.message)
     print(f"The lightning service is running at http://127.0.0.1:{port}")
-    if (HERE / "lightning-test.html").is_file():
-        print(f"Test page: http://127.0.0.1:{port}/lightning-test.html")
     print("Opening connections to NASA, which takes a few seconds. Press Ctrl+C to stop.", flush=True)
     warm.clear()
     Thread(target=warm_up, daemon=True).start()
