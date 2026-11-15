@@ -95,6 +95,7 @@ export function mapAmplitude(value, maxAmplitude = 0.8) {
     }
 
     return value * maxAmplitude;
+}
 
   //timestamp  to audio
   // GUYS READ THIS: Timestamps MUST be numeric and use the same unit.For example, seconds since the Unix epoch.
