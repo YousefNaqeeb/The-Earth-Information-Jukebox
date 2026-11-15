@@ -1,0 +1,5 @@
+fastapi
+h5py
+numpy
+requests
+uvicorn
