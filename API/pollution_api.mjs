@@ -2,10 +2,10 @@ import http from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeMeasurements, mapLinear, mapLogarithmic } from "./processing.js";
+import { normalizeMeasurements, mapLinear, mapLogarithmic } from "../js/datasets/processing.js";
 
-// The project's top folder, two levels above this file.
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+// The project's top folder, one level above this file.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CACHE_DIR = path.join(ROOT, "pollution_cache");
 const PORT = Number(process.argv[2]) || 8003;
 const NASA_URL = "https://opendap.nccs.nasa.gov/dods/gmao/geos-cf/assim/aqc_tavg_1hr_g1440x721_v1";
@@ -253,7 +253,7 @@ const server = http.createServer(async (request, response) => {
 
 server.on("error", error => {
     if (error.code === "EADDRINUSE") {
-        console.error(`Port ${PORT} is already in use. Pick another one, for example: node js/datasets/pollution_api.mjs ${PORT + 1}`);
+        console.error(`Port ${PORT} is already in use. Pick another one, for example: node API/pollution_api.mjs ${PORT + 1}`);
     } else {
         console.error(error);
     }

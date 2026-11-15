@@ -26,7 +26,7 @@ HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resol
 # Used when no token is given on the command line.
 TOKEN_FILE = HERE / "APIToken.txt"
 NO_TOKEN = ("A NASA Earthdata token is needed. Give it when starting, either as the path to a file that holds it "
-            "or as the token itself, for example: py py/lightning_api.py path-to-token.txt")
+            "or as the token itself, for example: py API/lightning_api.py path-to-token.txt")
 given_token = None
 # The cache sits in the project's top folder, one level above this script.
 CACHE_DIR = HERE.parent / "lightning_cache"

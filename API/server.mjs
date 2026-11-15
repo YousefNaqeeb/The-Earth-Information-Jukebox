@@ -2,10 +2,10 @@ import http from "node:http";
 import { open, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeMeasurements, mapLinear, mapLogarithmic } from "./processing.js";
+import { normalizeMeasurements, mapLinear, mapLogarithmic } from "../js/datasets/processing.js";
 
-// The project's top folder, two levels above this file.
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+// The project's top folder, one level above this file.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OCEAN_DIR = path.join(ROOT, "assets", "data", "OCEAN");
 const PORT = Number(process.argv[2]) || 8000;
 const DAY_SECONDS = 86400;
@@ -162,7 +162,7 @@ const server = http.createServer(async (request, response) => {
 
 server.on("error", error => {
     if (error.code === "EADDRINUSE") {
-        console.error(`Port ${PORT} is already in use. Pick another one, for example: node js/datasets/server.mjs ${PORT + 1}`);
+        console.error(`Port ${PORT} is already in use. Pick another one, for example: node API/server.mjs ${PORT + 1}`);
     } else {
         console.error(error);
     }

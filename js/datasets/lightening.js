@@ -1,6 +1,6 @@
 const SERVICE_URL = "http://127.0.0.1:8002/api/lightning";
 const NOT_RUNNING = "The lightning service did not answer. Start it in a terminal with your NASA token: "
-    + "py py/lightning_api.py path-to-token.txt";
+    + "py API/lightning_api.py path-to-token.txt";
 
 // Accepts a Date, a date string such as "2019-10-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {

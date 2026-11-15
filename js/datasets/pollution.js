@@ -1,5 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8003/api/pollution";
-const NOT_RUNNING = "The air pollution service did not answer. Start it in a terminal with: node js/datasets/pollution_api.mjs";
+const NOT_RUNNING = "The air pollution service did not answer. Start it in a terminal with: node API/pollution_api.mjs";
 
 // Accepts a Date, a date string such as "2024-07-20", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {
