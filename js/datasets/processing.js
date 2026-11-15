@@ -82,19 +82,19 @@ export function mapLogarithmic(value, outputMin, outputMax) {
     return outputMin * Math.pow(outputMax / outputMin, value);
 }
 
-// amplitude mapping ( also from open source)
+// amplitude mapping
 export function mapAmplitude(value, maxAmplitude = 0.8) {
     if (!Number.isFinite(value) || value < 0 || value > 1) {
         throw new Error("Normalized input must be between 0 and 1.");
     }
 
     if (!Number.isFinite(maxAmplitude) ||
-        maxAmplitude < 0 ||
+        maxAmplitude < 0.05 ||
         maxAmplitude > 1) {
-        throw new Error("Maximum amplitude must be between 0 and 1.");
+        throw new Error("Maximum amplitude must be between 0.05 and 1.");
     }
 
-    return value * maxAmplitude;
+    return 0.05 + value * (maxAmplitude - 0.05);
 }
 
   //timestamp  to audio

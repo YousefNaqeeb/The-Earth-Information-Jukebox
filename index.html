@@ -1,0 +1,859 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  
+<section id="datasetScreen" class="dataset-screen">
+
+    <header class="dataset-header">
+        <p class="eyebrow">THE EARTH INFORMATION JUKEBOX</p>
+        <h1>Explore Our Planet</h1>
+        <p>
+            Choose an Earth phenomenon to explore through
+            scientific data, mathematics, and sound.
+        </p>
+    </header>
+
+    <div class="dataset-grid">
+
+        <button class="dataset-card" data-dataset="pollution"
+            aria-pressed="false">
+            <img src="./assets/pollution.jpg"
+                 alt="Satellite observation of atmospheric pollution"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Pollution</strong>
+                <span>Explore atmospheric pollution data.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="lightning"
+            aria-pressed="false">
+            <img src="./assets/lightning.jpg"
+                 alt="Lightning observed from above Earth"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Lightning</strong>
+                <span>Explore lightning activity and patterns.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="city-lights"
+            aria-pressed="false">
+            <img src="./assets/city-lights.jpg"
+                 alt="Illuminated cities observed from space"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>City Lights</strong>
+                <span>Explore nighttime illumination.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="ocean"
+            aria-pressed="false">
+            <img src="./assets/ocean-temperature.jpg"
+                 alt="Global ocean surface temperature map"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Ocean Temperature</strong>
+                <span>Explore sea surface temperature changes.</span>
+            </span>
+        </button>
+
+    </div>
+
+    <p id="selectionMessage" aria-live="polite">
+        Select a dataset to continue.
+    </p>
+
+    <button id="exploreButton" disabled>
+        Explore Dataset
+    </button>
+
+</section>
+
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Earth Information Jukebox</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 35px;
+            background: #f3f6fa;
+            color: #202b3c;
+        }
+
+        
+
+        main {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #526174;
+            line-height: 1.6;
+        }
+
+        .panel {
+            background: white;
+            padding: 24px;
+            margin-top: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 20px;
+        }
+
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        input, button {
+            font: inherit;
+        }
+
+        input[type="number"] {
+            padding: 9px;
+            width: 100%;
+            border: 1px solid #aab6c5;
+            border-radius: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        input[type="color"] {
+            width: 65px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #3978c5;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #285e9e;
+        }
+
+        button:focus-visible,
+        input:focus-visible {
+            outline: 3px solid #d97706;
+            outline-offset: 3px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        #pitchGraph {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        #pitchGraph svg {
+            min-width: 600px;
+            display: block;
+        }
+
+        .readout {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .readout-card {
+            padding: 15px;
+            background: #edf2f8;
+            border-radius: 8px;
+        }
+
+        .readout-card p {
+            margin-bottom: 5px;
+            color: #526174;
+        }
+
+        .readout-card strong {
+            font-size: 19px;
+        }
+
+        .muted {
+            color: #526174;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 16px;
+            }
+
+            .panel {
+                padding: 16px;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<main id="workspaceScreen" hidden>
+
+    <h1>Earth Information Jukebox</h1>
+
+    <p class="subtitle">
+        Explore Earth measurements through mathematics,
+        interactive graphs, and sound.
+    </p>
+
+    <p class="muted">
+        Interface demonstration data only — not actual NASA observations.
+    </p>
+
+    <!-- GRAPH -->
+
+    <section class="panel">
+
+        <h2>Pitch vs. Time</h2>
+
+        <p>
+            Each horizontal segment represents a generated note.
+            The vertical cursor represents your selected playback position.
+        </p>
+
+        <div id="pitchGraph"></div>
+
+    </section>
+
+
+    <!-- GRAPH SETTINGS -->
+
+    <section class="panel">
+
+        <h2>Graph Settings</h2>
+
+        <div class="controls">
+
+            <div class="control">
+                <label for="minFrequency">
+                    Minimum frequency (Hz)
+                </label>
+
+                <input
+                    type="number"
+                    id="minFrequency"
+                    value="100"
+                    min="0"
+                    step="10"
+                >
+            </div>
+
+            <div class="control">
+                <label for="maxFrequency">
+                    Maximum frequency (Hz)
+                </label>
+
+                <input
+                    type="number"
+                    id="maxFrequency"
+                    value="1000"
+                    min="1"
+                    step="10"
+                >
+            </div>
+
+            <div class="control">
+                <label for="noteColor">
+                    Note color
+                </label>
+
+                <input
+                    type="color"
+                    id="noteColor"
+                    value="#3978c5"
+                >
+            </div>
+
+            <div class="control">
+                <label for="showGrid">
+                    <input
+                        type="checkbox"
+                        id="showGrid"
+                        checked
+                    >
+                    Show coordinate grid
+                </label>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- TIME NAVIGATION -->
+
+    <section class="panel">
+
+        <h2>Explore the Timeline</h2>
+
+        <div class="control">
+
+            <label for="timeSlider">
+                Select a playback position
+            </label>
+
+            <input
+                type="range"
+                id="timeSlider"
+                min="0"
+                max="6.8"
+                step="0.01"
+                value="0"
+            >
+
+            <p>
+                Selected time:
+                <strong id="timeValue">0.00 seconds</strong>
+            </p>
+
+        </div>
+
+        <div class="readout">
+
+            <div class="readout-card">
+                <p>Observation date</p>
+                <strong id="dateValue">—</strong>
+            </div>
+
+            <div class="readout-card">
+                <p>Earth measurement</p>
+                <strong id="measurementValue">—</strong>
+            </div>
+
+            <div class="readout-card">
+                <p>Normalized value</p>
+                <strong id="normalizedValue">—</strong>
+            </div>
+
+            <div class="readout-card">
+                <p>Generated frequency</p>
+                <strong id="frequencyValue">—</strong>
+            </div>
+
+        </div>
+
+        <div class="button-row">
+
+            <button id="playButton">
+                Play from selected time
+            </button>
+
+            <button id="resetButton">
+                Reset position
+            </button>
+
+        </div>
+
+        <p id="status" aria-live="polite">
+            Ready to explore.
+        </p>
+
+    </section>
+
+
+    <!-- DATA TABLE -->
+
+    <section class="panel">
+
+        <h2>Original Measurements</h2>
+
+        <p>
+            The table provides an alternative way to inspect
+            the data without relying on the graph.
+        </p>
+
+        <div style="overflow-x: auto;">
+
+            <table id="dataTable" style="width:100%; text-align:left; border-collapse:collapse;">
+
+                <thead>
+                    <tr>
+                        <th style="padding:10px;">Date</th>
+                        <th style="padding:10px;">Measurement</th>
+                        <th style="padding:10px;">Normalized</th>
+                        <th style="padding:10px;">Frequency</th>
+                    </tr>
+                </thead>
+
+                <tbody id="tableBody"></tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<script type="module">
+
+    // IMPORTS
+
+    import {
+        normalizeMeasurements,
+        mapLinear,
+        mapAmplitude,
+        mapTimeToAudio
+    } from "./js/datasets/processing.js";
+
+    import {
+        playSequence,
+        renderSequence
+    } from "./js/datasets/sonification.js";
+
+    import {
+        renderPitchGraph
+   } from "./js/datasets/visualizer.js";
+
+
+// ==========================================
+// DATASET SELECTION
+// ==========================================
+
+const datasetScreen = document.getElementById("datasetScreen");
+const workspaceScreen = document.getElementById("workspaceScreen");
+const exploreButton = document.getElementById("exploreButton");
+const selectionMessage = document.getElementById("selectionMessage");
+
+let selectedDataset = null;
+
+const datasetNames = {
+    pollution: "Pollution",
+    lightning: "Lightning",
+    "city-lights": "City Lights",
+    ocean: "Ocean Temperature"
+};
+
+const datasetCards = document.querySelectorAll(".dataset-card");
+
+datasetCards.forEach(card => {
+    card.addEventListener("click", () => {
+
+        datasetCards.forEach(otherCard => {
+            otherCard.setAttribute("aria-pressed", "false");
+        });
+
+        card.setAttribute("aria-pressed", "true");
+
+        selectedDataset = card.dataset.dataset;
+
+        selectionMessage.textContent =
+            `${datasetNames[selectedDataset]} selected.`;
+
+        exploreButton.disabled = false;
+
+        console.log("Dataset selected:", selectedDataset);
+    });
+});
+
+exploreButton.addEventListener("click", () => {
+
+    if (!selectedDataset) return;
+
+    datasetScreen.hidden = true;
+    workspaceScreen.hidden = false;
+
+    document.getElementById("selectedDatasetTitle").textContent =
+        datasetNames[selectedDataset];
+
+    console.log("Opening dataset:", selectedDataset);
+});
+
+document.getElementById("backToDatasets").addEventListener("click", () => {
+    workspaceScreen.hidden = true;
+    datasetScreen.hidden = false;
+});
+
+    // DEMONSTRATION EARTH DATA
+    // Replace these with actual dataset observations later.
+
+    const measurements = [
+        {
+            value: 10,
+            timestamp: Date.parse("2026-01-01T00:00:00Z") / 1000
+        },
+        {
+            value: 30,
+            timestamp: Date.parse("2026-01-02T00:00:00Z") / 1000
+        },
+        {
+            value: 50,
+            timestamp: Date.parse("2026-01-03T00:00:00Z") / 1000
+        }
+    ];
+
+
+    // AUDIO CONFIGURATION
+
+    const audioDuration = 6;
+    const noteDuration = 0.8;
+
+    const firstTimestamp = measurements[0].timestamp;
+    const lastTimestamp = measurements[measurements.length - 1].timestamp;
+
+
+    // NORMALIZATION
+
+    const normalized = normalizeMeasurements(measurements);
+
+
+    // GENERATE TONES
+
+    const tones = normalized.map(point => ({
+
+        frequency: mapLinear(
+            point.normalized,
+            220,
+            880
+        ),
+
+        startTime: mapTimeToAudio(
+            point.timestamp,
+            firstTimestamp,
+            lastTimestamp,
+            audioDuration
+        ),
+
+        duration: noteDuration,
+
+        amplitude: mapAmplitude(
+            point.normalized,
+            0.3
+        )
+
+    }));
+
+
+    // TIMELINE
+
+    const timelineDuration = Math.max(
+        ...tones.map(tone => tone.startTime + tone.duration)
+    );
+
+
+    // ELEMENT REFERENCES
+
+    const graphContainer = document.getElementById("pitchGraph");
+
+    const timeSlider = document.getElementById("timeSlider");
+
+    const minFrequencyInput = document.getElementById("minFrequency");
+
+    const maxFrequencyInput = document.getElementById("maxFrequency");
+
+    const noteColorInput = document.getElementById("noteColor");
+
+    const gridInput = document.getElementById("showGrid");
+
+    const status = document.getElementById("status");
+
+
+    // SET TIMELINE LIMITS
+
+    timeSlider.max = timelineDuration;
+
+
+    // CURRENT GRAPH SETTINGS
+
+    function getGraphSettings() {
+
+        return {
+            minFrequency: Number(minFrequencyInput.value),
+            maxFrequency: Number(maxFrequencyInput.value),
+            noteColor: noteColorInput.value,
+            showGrid: gridInput.checked,
+            cursorTime: Number(timeSlider.value),
+            timelineDuration
+        };
+
+    }
+
+
+    // DRAW GRAPH
+
+    function updateGraph() {
+
+        const settings = getGraphSettings();
+
+        if (
+            !Number.isFinite(settings.minFrequency) ||
+            !Number.isFinite(settings.maxFrequency) ||
+            settings.maxFrequency <= settings.minFrequency
+        ) {
+            status.textContent =
+                "Invalid frequency range. Maximum must exceed minimum.";
+
+            return;
+        }
+
+        renderPitchGraph(
+            tones,
+            measurements,
+            graphContainer,
+            settings
+        );
+
+    }
+
+
+    // FIND THE MEASUREMENT ASSOCIATED WITH A SELECTED TIME
+
+    function getSelectedMeasurement(time) {
+
+        const measurementTimes = measurements.map(point => ({
+            point,
+            audioTime: mapTimeToAudio(
+                point.timestamp,
+                firstTimestamp,
+                lastTimestamp,
+                audioDuration
+            )
+        }));
+
+        const previousMeasurements = measurementTimes.filter(
+            item => item.audioTime <= time
+        );
+
+        return previousMeasurements.length > 0
+            ? previousMeasurements[previousMeasurements.length - 1].point
+            : measurements[0];
+
+    }
+
+
+    // UPDATE INFORMATION PANEL
+
+    function updateInformation() {
+
+        const selectedTime = Number(timeSlider.value);
+
+        const measurement = getSelectedMeasurement(selectedTime);
+
+        const normalizedPoint = normalized.find(
+            point => point.timestamp === measurement.timestamp
+        );
+
+        const activeTone = tones.find(
+            tone =>
+                selectedTime >= tone.startTime &&
+                selectedTime < tone.startTime + tone.duration
+        );
+
+        const date = new Date(measurement.timestamp * 1000);
+
+        document.getElementById("timeValue").textContent =
+            `${selectedTime.toFixed(2)} seconds`;
+
+        document.getElementById("dateValue").textContent =
+            date.toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                timeZone: "UTC"
+            });
+
+        document.getElementById("measurementValue").textContent =
+            measurement.value;
+
+        document.getElementById("normalizedValue").textContent =
+            normalizedPoint.normalized.toFixed(3);
+
+        document.getElementById("frequencyValue").textContent =
+            activeTone
+                ? `${activeTone.frequency.toFixed(1)} Hz`
+                : "Silence";
+
+    }
+
+
+    // UPDATE EVERYTHING WHEN TIME CHANGES
+
+    function updateSelection() {
+
+        updateGraph();
+        updateInformation();
+
+    }
+
+
+    // GRAPH CONTROL EVENTS
+
+    timeSlider.addEventListener("input", updateSelection);
+
+    minFrequencyInput.addEventListener("change", updateGraph);
+
+    maxFrequencyInput.addEventListener("change", updateGraph);
+
+    noteColorInput.addEventListener("input", updateGraph);
+
+    gridInput.addEventListener("change", updateGraph);
+
+
+    // PLAY FROM SELECTED TIME
+
+    document.getElementById("playButton").addEventListener("click", () => {
+
+        const selectedTime = Number(timeSlider.value);
+
+        const remainingTones = tones
+            .filter(tone =>
+                tone.startTime + tone.duration > selectedTime
+            )
+            .map(tone => {
+
+                const originalEnd =
+                    tone.startTime + tone.duration;
+
+                const newStart =
+                    Math.max(0, tone.startTime - selectedTime);
+
+                const newDuration =
+                    originalEnd - Math.max(
+                        tone.startTime,
+                        selectedTime
+                    );
+
+                return {
+                    ...tone,
+                    startTime: newStart,
+                    duration: newDuration
+                };
+
+            });
+
+        if (remainingTones.length === 0) {
+
+            status.textContent =
+                "There are no remaining notes at this position.";
+
+            return;
+
+        }
+
+        playSequence(remainingTones);
+
+        status.textContent =
+            `Playing from ${selectedTime.toFixed(2)} seconds.`;
+
+    });
+
+
+    // RESET TIME
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+
+        timeSlider.value = 0;
+
+        updateSelection();
+
+        status.textContent = "Playback position reset.";
+
+    });
+
+
+    // BUILD ACCESSIBLE DATA TABLE
+
+    const tableBody = document.getElementById("tableBody");
+
+    normalized.forEach((point, index) => {
+
+        const row = document.createElement("tr");
+
+        const date = new Date(point.timestamp * 1000);
+
+        const dateText = date.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC"
+        });
+
+        const values = [
+            dateText,
+            point.value,
+            point.normalized.toFixed(3),
+            `${tones[index].frequency.toFixed(1)} Hz`
+        ];
+
+        values.forEach(value => {
+
+            const cell = document.createElement("td");
+
+            cell.textContent = value;
+            cell.style.padding = "10px";
+            cell.style.borderTop = "1px solid #d5dce5";
+
+            row.appendChild(cell);
+
+        });
+
+        tableBody.appendChild(row);
+
+    });
+
+
+    // INITIALIZE
+
+    console.log("Original measurements:", measurements);
+    console.log("Normalized measurements:", normalized);
+    console.log("Generated tones:", tones);
+
+    updateSelection();
+
+    renderSequence(tones)
+        .then(audioBuffer => {
+
+            console.log("Audio buffer:", audioBuffer);
+            console.log("Audio duration:", audioBuffer.duration);
+            console.log("Sample rate:", audioBuffer.sampleRate);
+
+        })
+        .catch(error => {
+
+            console.error("Audio rendering failed:", error);
+
+        });
+
+</script>
+
+</body>
+</html>

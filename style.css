@@ -1,0 +1,92 @@
+
+.dataset-screen {
+    max-width: 1050px;
+    margin: 55px auto;
+}
+
+.dataset-header {
+    margin-bottom: 35px;
+}
+
+.eyebrow {
+    letter-spacing: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #3978c5;
+}
+
+.dataset-header h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    margin-bottom: 10px;
+}
+
+.dataset-header p {
+    line-height: 1.6;
+    color: #526174;
+}
+
+.dataset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.dataset-card {
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+    background: white;
+    color: #202b3c;
+    border: 3px solid transparent;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.dataset-card:hover {
+    transform: translateY(-3px);
+}
+
+.dataset-card[aria-pressed="true"] {
+    border-color: #3978c5;
+}
+
+.dataset-card:focus-visible {
+    outline: 3px solid #d97706;
+    outline-offset: 4px;
+}
+
+.dataset-card img {
+    display: block;
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    background: linear-gradient(135deg, #173b60, #4389a5);
+}
+
+.dataset-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 18px;
+}
+
+.dataset-card-text strong {
+    font-size: 21px;
+}
+
+.dataset-card-text span {
+    color: #526174;
+    font-size: 14px;
+}
+
+#exploreButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+    .dataset-grid {
+        grid-template-columns: 1fr;
+    }
+}
