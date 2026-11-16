@@ -35,6 +35,43 @@ export function datasetNeedsToken(name) {
     return needsToken.has(name);
 }
 
+// The user's NASA Earthdata token is kept in the browser's own storage for this site, under this
+// name. It stays there until removed, and is sent only with requests for the datasets above.
+const TOKEN_KEY = "nasaEarthdataToken";
+const TOKEN_SHAPE = /^[A-Za-z0-9._~+/=-]+$/;
+
+// The token saved in this browser, or "" when there is none.
+export function savedToken() {
+    try {
+        return localStorage.getItem(TOKEN_KEY) || "";
+    } catch {
+        return "";
+    }
+}
+
+// True when the text could be a NASA Earthdata token: one unbroken piece of text.
+export function looksLikeToken(text) {
+    return TOKEN_SHAPE.test(text.trim());
+}
+
+// Saves the token in this browser. Returns false when the browser would not store it.
+export function saveToken(token) {
+    try {
+        localStorage.setItem(TOKEN_KEY, token.trim());
+        return savedToken() === token.trim();
+    } catch {
+        return false;
+    }
+}
+
+export function removeSavedToken() {
+    try {
+        localStorage.removeItem(TOKEN_KEY);
+    } catch {
+        // Nothing was stored if the browser does not allow storage.
+    }
+}
+
 // Where each dataset's service is found at the page's own address when start.mjs serves the page.
 const pageAddresses = {
     ocean: "/api/ocean",
@@ -63,10 +100,14 @@ async function servicesThroughPage() {
 // ready for the functions in processing.js. The dataset's service must be running.
 // Options are passed on to the dataset's own function, for example token for night lights
 // and lightning, radius for lightning, or pollutant and period for pollution.
+// For a dataset that takes a token, the one saved in this browser is sent unless options.token is given.
 export async function loadDataset(name, startTime, endTime, lat, lon, options = {}) {
     const load = loaders[name];
     if (!load) {
         throw new Error(`Unknown dataset: ${name}`);
+    }
+    if (needsToken.has(name) && options.token === undefined && savedToken()) {
+        options = { ...options, token: savedToken() };
     }
     if (options.serviceUrl === undefined && await servicesThroughPage()) {
         options = { ...options, serviceUrl: pageAddresses[name] };
