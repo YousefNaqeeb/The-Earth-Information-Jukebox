@@ -18,3 +18,4 @@ dist/
 # Python's own compiled files.
 __pycache__/
 *.pyc
+**/APIToken.txt

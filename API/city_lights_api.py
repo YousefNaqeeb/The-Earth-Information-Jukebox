@@ -76,6 +76,8 @@ def nasa_unreachable(request, error):
 def load_token():
     if given_token:
         return given_token
+    if os.environ.get("NASA_EARTHDATA_TOKEN"):
+        return os.environ["NASA_EARTHDATA_TOKEN"]
     try:
         return TOKEN_FILE.read_text().strip()
     except OSError:
@@ -413,4 +415,4 @@ if __name__ == "__main__":
     print("Opening connections to NASA, which takes up to half a minute. Press Ctrl+C to stop.", flush=True)
     warm.clear()
     Thread(target=warm_up, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

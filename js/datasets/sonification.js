@@ -19,8 +19,10 @@ export function playTone(frequency, duration = 1, amplitude = 0.3) {
     return audioContext;
 }
 
-export function playSequence(tones) {
-    const audioContext = new AudioContext();
+export function playSequence(
+    tones,
+    audioContext = new AudioContext()
+) {
 
     tones.forEach(({ frequency, startTime, duration, amplitude }) => {
         const oscillator = audioContext.createOscillator();
@@ -72,3 +74,4 @@ export async function renderSequence(tones) {
 
     return await offlineContext.startRendering();
 }
+

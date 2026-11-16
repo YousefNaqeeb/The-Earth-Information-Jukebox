@@ -105,6 +105,8 @@ def nasa_unreachable(request, error):
 def load_token():
     if given_token:
         return given_token
+    if os.environ.get("NASA_EARTHDATA_TOKEN"):
+        return os.environ["NASA_EARTHDATA_TOKEN"]
     try:
         return TOKEN_FILE.read_text().strip()
     except OSError:
