@@ -131,7 +131,8 @@
             font: inherit;
         }
 
-        input[type="number"] {
+        input[type="number"],
+        input[type="text"] {
             padding: 9px;
             width: 100%;
             border: 1px solid #aab6c5;
@@ -234,9 +235,95 @@
         interactive graphs, and sound.
     </p>
 
-    <p class="muted">
-        Interface demonstration data only — not actual NASA observations.
-    </p>
+    <!-- DATASET, PLACE AND TIME -->
+
+    <section class="panel">
+
+        <h2 id="selectedDatasetTitle" tabindex="-1">Dataset</h2>
+
+        <p>
+            Choose where on Earth and which period to listen to.
+        </p>
+
+        <form id="placeForm">
+
+            <div class="controls">
+
+                <div class="control">
+                    <label for="latitude">
+                        Latitude (-90 to 90)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="latitude"
+                        min="-90"
+                        max="90"
+                        step="any"
+                        required
+                    >
+                </div>
+
+                <div class="control">
+                    <label for="longitude">
+                        Longitude (-180 to 180)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="longitude"
+                        min="-180"
+                        max="180"
+                        step="any"
+                        required
+                    >
+                </div>
+
+                <div class="control">
+                    <label for="startDate">
+                        Start date, for example 2007-03-25
+                    </label>
+
+                    <input
+                        type="text"
+                        id="startDate"
+                        required
+                    >
+                </div>
+
+                <div class="control">
+                    <label for="endDate">
+                        End date, for example 2008-03-03
+                    </label>
+
+                    <input
+                        type="text"
+                        id="endDate"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <div class="button-row">
+
+                <button type="submit" id="loadButton">
+                    Load data
+                </button>
+
+                <button type="button" id="backToDatasets">
+                    Back to datasets
+                </button>
+
+            </div>
+
+        </form>
+
+        <p id="loadStatus" aria-live="polite">
+            Enter a place and dates, then load the data.
+        </p>
+
+    </section>
 
     <!-- GRAPH -->
 
@@ -444,6 +531,10 @@
         renderPitchGraph
    } from "./js/datasets/visualizer.js";
 
+    import {
+        loadDataset
+    } from "./js/datasets/loader.js";
+
 
 // ==========================================
 // DATASET SELECTION
@@ -492,8 +583,16 @@ exploreButton.addEventListener("click", () => {
     datasetScreen.hidden = true;
     workspaceScreen.hidden = false;
 
-    document.getElementById("selectedDatasetTitle").textContent =
-        datasetNames[selectedDataset];
+    const datasetTitle = document.getElementById("selectedDatasetTitle");
+
+    datasetTitle.textContent = datasetNames[selectedDataset];
+
+    clearMeasurements();
+
+    loadStatus.textContent =
+        "Enter a place and dates, then load the data.";
+
+    datasetTitle.focus();
 
     console.log("Opening dataset:", selectedDataset);
 });
@@ -501,73 +600,34 @@ exploreButton.addEventListener("click", () => {
 document.getElementById("backToDatasets").addEventListener("click", () => {
     workspaceScreen.hidden = true;
     datasetScreen.hidden = false;
+
+    exploreButton.focus();
 });
 
-    // DEMONSTRATION EARTH DATA
-    // Replace these with actual dataset observations later.
+    // EARTH DATA
+    // Empty until showMeasurements receives the selected dataset's observations.
 
-    const measurements = [
-        {
-            value: 10,
-            timestamp: Date.parse("2026-01-01T00:00:00Z") / 1000
-        },
-        {
-            value: 30,
-            timestamp: Date.parse("2026-01-02T00:00:00Z") / 1000
-        },
-        {
-            value: 50,
-            timestamp: Date.parse("2026-01-03T00:00:00Z") / 1000
-        }
-    ];
+    let measurements = [];
+    let normalized = [];
+    let tones = [];
+
+    let firstTimestamp = 0;
+    let lastTimestamp = 0;
+    let timelineDuration = 0;
+
+    let playingContext = null;
+    let latestRequest = 0;
 
 
     // AUDIO CONFIGURATION
+    // The audio lasts 6 seconds for a few measurements and grows with their number, up to a minute.
 
-    const audioDuration = 6;
     const noteDuration = 0.8;
+    const secondsPerMeasurement = 0.15;
+    const shortestAudio = 6;
+    const longestAudio = 60;
 
-    const firstTimestamp = measurements[0].timestamp;
-    const lastTimestamp = measurements[measurements.length - 1].timestamp;
-
-
-    // NORMALIZATION
-
-    const normalized = normalizeMeasurements(measurements);
-
-
-    // GENERATE TONES
-
-    const tones = normalized.map(point => ({
-
-        frequency: mapLinear(
-            point.normalized,
-            220,
-            880
-        ),
-
-        startTime: mapTimeToAudio(
-            point.timestamp,
-            firstTimestamp,
-            lastTimestamp,
-            audioDuration
-        ),
-
-        duration: noteDuration,
-
-        amplitude: mapAmplitude(
-            point.normalized,
-            0.3
-        )
-
-    }));
-
-
-    // TIMELINE
-
-    const timelineDuration = Math.max(
-        ...tones.map(tone => tone.startTime + tone.duration)
-    );
+    let audioDuration = shortestAudio;
 
 
     // ELEMENT REFERENCES
@@ -586,10 +646,147 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
     const status = document.getElementById("status");
 
+    const tableBody = document.getElementById("tableBody");
 
-    // SET TIMELINE LIMITS
+    const placeForm = document.getElementById("placeForm");
 
-    timeSlider.max = timelineDuration;
+    const loadStatus = document.getElementById("loadStatus");
+
+
+    // STOP AUDIO THAT IS STILL PLAYING
+
+    function stopPlayback() {
+
+        if (playingContext) {
+            playingContext.close();
+            playingContext = null;
+        }
+
+    }
+
+
+    // TURN LOADED MEASUREMENTS INTO TONES AND SHOW THEM
+
+    function showMeasurements(loadedMeasurements) {
+
+        stopPlayback();
+
+        measurements = loadedMeasurements;
+
+        audioDuration = Math.min(
+            longestAudio,
+            Math.max(
+                shortestAudio,
+                measurements.length * secondsPerMeasurement
+            )
+        );
+
+        firstTimestamp = measurements[0].timestamp;
+        lastTimestamp = measurements[measurements.length - 1].timestamp;
+
+        normalized = normalizeMeasurements(measurements);
+
+        const startTimes = normalized.map(point =>
+            mapTimeToAudio(
+                point.timestamp,
+                firstTimestamp,
+                lastTimestamp,
+                audioDuration
+            )
+        );
+
+        tones = normalized.map((point, index) => {
+
+            // A note ends when the next one starts, so measurements
+            // that are close together do not sound on top of each other.
+            const gap = index + 1 < startTimes.length
+                ? startTimes[index + 1] - startTimes[index]
+                : startTimes[index] - startTimes[index - 1];
+
+            return {
+
+                frequency: mapLinear(
+                    point.normalized,
+                    220,
+                    880
+                ),
+
+                startTime: startTimes[index],
+
+                duration: Math.min(noteDuration, gap),
+
+                amplitude: mapAmplitude(
+                    point.normalized,
+                    0.3
+                )
+
+            };
+
+        });
+
+        timelineDuration = Math.max(
+            ...tones.map(tone => tone.startTime + tone.duration)
+        );
+
+        timeSlider.max = timelineDuration;
+        timeSlider.value = 0;
+
+        buildTable();
+        updateSelection();
+
+        console.log("Original measurements:", measurements);
+        console.log("Normalized measurements:", normalized);
+        console.log("Generated tones:", tones);
+
+        renderSequence(tones)
+            .then(audioBuffer => {
+
+                console.log("Audio buffer:", audioBuffer);
+                console.log("Audio duration:", audioBuffer.duration);
+                console.log("Sample rate:", audioBuffer.sampleRate);
+
+            })
+            .catch(error => {
+
+                console.error("Audio rendering failed:", error);
+
+            });
+
+    }
+
+
+    // REMOVE THE CURRENT MEASUREMENTS FROM THE PAGE
+
+    function clearMeasurements() {
+
+        stopPlayback();
+
+        latestRequest += 1;
+
+        measurements = [];
+        normalized = [];
+        tones = [];
+        timelineDuration = 0;
+
+        graphContainer.replaceChildren();
+        tableBody.replaceChildren();
+
+        timeSlider.value = 0;
+
+        document.getElementById("timeValue").textContent = "0.00 seconds";
+
+        const readouts = [
+            "dateValue",
+            "measurementValue",
+            "normalizedValue",
+            "frequencyValue"
+        ];
+
+        readouts.forEach(id => {
+            document.getElementById(id).textContent = "—";
+        });
+
+    }
 
 
     // CURRENT GRAPH SETTINGS
@@ -602,7 +799,8 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
             noteColor: noteColorInput.value,
             showGrid: gridInput.checked,
             cursorTime: Number(timeSlider.value),
-            timelineDuration
+            timelineDuration,
+            audioDuration
         };
 
     }
@@ -611,6 +809,8 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
     // DRAW GRAPH
 
     function updateGraph() {
+
+        if (tones.length === 0) return;
 
         const settings = getGraphSettings();
 
@@ -663,6 +863,8 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
     // UPDATE INFORMATION PANEL
 
     function updateInformation() {
+
+        if (measurements.length === 0) return;
 
         const selectedTime = Number(timeSlider.value);
 
@@ -732,6 +934,14 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
     document.getElementById("playButton").addEventListener("click", () => {
 
+        if (tones.length === 0) {
+
+            status.textContent = "Load data before playing.";
+
+            return;
+
+        }
+
         const selectedTime = Number(timeSlider.value);
 
         const remainingTones = tones
@@ -769,7 +979,9 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
         }
 
-        playSequence(remainingTones);
+        stopPlayback();
+
+        playingContext = playSequence(remainingTones);
 
         status.textContent =
             `Playing from ${selectedTime.toFixed(2)} seconds.`;
@@ -792,9 +1004,7 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
     // BUILD ACCESSIBLE DATA TABLE
 
-    const tableBody = document.getElementById("tableBody");
-
-    normalized.forEach((point, index) => {
+    function addTableRow(point, index) {
 
         const row = document.createElement("tr");
 
@@ -828,30 +1038,104 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
         tableBody.appendChild(row);
 
+    }
+
+    function buildTable() {
+
+        tableBody.replaceChildren();
+
+        normalized.forEach(addTableRow);
+
+    }
+
+
+    // LOAD THE SELECTED DATASET FOR THE CHOSEN PLACE AND TIME
+
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const secondsPerDay = 86400;
+
+    placeForm.addEventListener("submit", async event => {
+
+        event.preventDefault();
+
+        const dataset = selectedDataset;
+
+        const latitude = Number(document.getElementById("latitude").value);
+        const longitude = Number(document.getElementById("longitude").value);
+        const startDate = document.getElementById("startDate").value.trim();
+        const endDate = document.getElementById("endDate").value.trim();
+
+        const startTime = Date.parse(startDate) / 1000;
+
+        // The end date is included, up to its last second.
+        const endTime = Date.parse(endDate) / 1000 + secondsPerDay - 1;
+
+        if (
+            !datePattern.test(startDate) ||
+            !datePattern.test(endDate) ||
+            !Number.isFinite(startTime) ||
+            !Number.isFinite(endTime)
+        ) {
+            loadStatus.textContent =
+                "Dates must be written as year, month, day, for example 2007-03-25.";
+
+            return;
+        }
+
+        if (endTime < startTime) {
+            loadStatus.textContent =
+                "The end date must not be before the start date.";
+
+            return;
+        }
+
+        // A newer request, or leaving the dataset, makes this one out of date.
+        latestRequest += 1;
+
+        const request = latestRequest;
+
+        loadStatus.textContent = `Loading ${datasetNames[dataset]} data.`;
+
+        try {
+
+            const loaded = await loadDataset(
+                dataset,
+                startTime,
+                endTime,
+                latitude,
+                longitude
+            );
+
+            if (request !== latestRequest) return;
+
+            if (loaded.length < 2) {
+
+                clearMeasurements();
+
+                loadStatus.textContent = loaded.length === 0
+                    ? "There are no measurements at this place and time."
+                    : "There is only one measurement at this place and time. Choose a longer period.";
+
+                return;
+
+            }
+
+            showMeasurements(loaded);
+
+            loadStatus.textContent =
+                `Loaded ${loaded.length} measurements, from ` +
+                `${loaded[0].date} to ${loaded[loaded.length - 1].date}. ` +
+                `The audio lasts ${timelineDuration.toFixed(1)} seconds.`;
+
+        } catch (error) {
+
+            if (request !== latestRequest) return;
+
+            loadStatus.textContent = error.message;
+
+        }
+
     });
-
-
-    // INITIALIZE
-
-    console.log("Original measurements:", measurements);
-    console.log("Normalized measurements:", normalized);
-    console.log("Generated tones:", tones);
-
-    updateSelection();
-
-    renderSequence(tones)
-        .then(audioBuffer => {
-
-            console.log("Audio buffer:", audioBuffer);
-            console.log("Audio duration:", audioBuffer.duration);
-            console.log("Sample rate:", audioBuffer.sampleRate);
-
-        })
-        .catch(error => {
-
-            console.error("Audio rendering failed:", error);
-
-        });
 
 </script>
 

@@ -190,11 +190,19 @@ export function renderPitchGraph(tones, measurements, container, options = {}) {
     });
 
     // Original measurement dates
-    measurements.forEach(point => {
+    // With many measurements only some are labelled, so the dates do not overlap.
+    const audioDuration = Number(options.audioDuration ?? 6);
+    const labelEvery = Math.max(1, Math.ceil(measurements.length / 8));
+
+    measurements.forEach((point, index) => {
+        if (index % labelEvery !== 0) {
+            return;
+        }
+
         const audioTime =
             ((point.timestamp - measurements[0].timestamp) /
             (measurements[measurements.length - 1].timestamp -
-            measurements[0].timestamp)) * 6;
+            measurements[0].timestamp)) * audioDuration;
 
         const date = new Date(point.timestamp * 1000);
 
