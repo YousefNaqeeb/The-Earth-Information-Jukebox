@@ -1,19 +1,21 @@
 import io
 import json
 import math
+import os
 import re
 import ssl
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock, Thread
 
 import h5py
 import numpy
 import requests
 import uvicorn
-from fastapi import FastAPI, Header
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -22,9 +24,12 @@ from processing import map_linear, map_logarithmic, normalize_measurements
 # Built into a single program with PyInstaller, the cache and the site sit next to the program,
 # not in the temporary folder it unpacks itself into.
 HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
-# The NASA Earthdata token is not kept by this service. It comes with each request, in the
-# header "Authorization: Bearer <token>", and is only ever passed on to NASA.
-NO_TOKEN = "A NASA Earthdata token is needed for this lookup, and none came with the request."
+# The NASA Earthdata token is taken from this environment variable. In a GitHub Codespace the
+# repository secret of the same name fills it in. The token is only ever sent to NASA, and is
+# never printed or saved.
+TOKEN_VARIABLE = "EARTHDATA_TOKEN"
+NO_TOKEN = ("The lightning service has no NASA Earthdata token. Set the EARTHDATA_TOKEN environment variable, "
+            "or in a Codespace the repository secret of that name, and start the service again.")
 TOKEN_SHAPE = re.compile(r"[A-Za-z0-9._~+/=-]+", re.ASCII)
 # The cache sits in the project's top folder, one level above this script.
 CACHE_DIR = HERE.parent / "lightning_cache"
@@ -59,10 +64,12 @@ DEFAULT_LOW_HZ = 220
 DEFAULT_HIGH_HZ = 880
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["Authorization"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
 
 # Held by the one lookup that is adding to the cache. Lookups that are fully cached never wait for it.
 writing = Lock()
+warm = Event()
+warm.set()
 certificates = ssl.create_default_context(cafile=requests.certs.where())
 
 
@@ -79,6 +86,9 @@ class SharedCertificates(requests.adapters.HTTPAdapter):
 
 http = requests.Session()
 http.mount("https://", SharedCertificates(pool_maxsize=MAX_REQUESTS + 4))
+# NASA answers a good token with a login cookie. Keeping it would let later requests in on the
+# strength of an earlier request's token, so no cookies are kept and every request stands on its own.
+http.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
 
 
 class ServiceError(Exception):
@@ -98,15 +108,12 @@ def nasa_unreachable(request, error):
     return JSONResponse({"error": "Could not reach NASA's servers. Try again in a moment."}, status_code=502)
 
 
-# The token that came with a request, taken from its Authorization header.
-def token_from(authorization):
-    token = (authorization or "").strip()
-    if token[:7].lower() == "bearer ":
-        token = token[7:].strip()
+def load_token():
+    token = os.environ.get(TOKEN_VARIABLE, "").strip()
     if not token:
-        raise ServiceError(401, NO_TOKEN)
+        raise ServiceError(500, NO_TOKEN)
     if not TOKEN_SHAPE.fullmatch(token):
-        raise ServiceError(401, "What came with the request does not look like a NASA Earthdata token.")
+        raise ServiceError(500, "What is in EARTHDATA_TOKEN does not look like a NASA Earthdata token.")
     return token
 
 
@@ -126,7 +133,7 @@ def signed_address(url, token):
     response.close()
     target = response.headers.get("Location", "")
     if response.status_code not in (301, 302, 303, 307, 308) or "urs.earthdata.nasa.gov" in target:
-        raise ServiceError(401, "NASA did not accept the Earthdata token. It may have expired.")
+        raise ServiceError(502, "NASA did not accept the Earthdata token. It may have expired.")
     return target
 
 
@@ -286,11 +293,11 @@ def list_days(days):
 
 # Makes sure every one of these orbit files is in the cache. Only one lookup downloads at a time,
 # which keeps the number of requests in flight at MAX_REQUESTS however many lookups arrive.
-# The request's token is only needed, and only checked, when something has to be downloaded.
-def fill_cache(urls, authorization):
+# The token is only needed, and only looked for, when something has to be downloaded.
+def fill_cache(urls):
     if all(flash_path(url).exists() for url in urls):
         return
-    token = token_from(authorization)
+    token = load_token()
     with writing:
         missing = [url for url in urls if not flash_path(url).exists()]
         if not missing:
@@ -361,12 +368,11 @@ def add_pitch(series, options):
 # March 2017 to November 2023). One value per day whose midnight is inside the time range.
 # The sensor watches a place for about a minute and a half as it passes, a few times a day at
 # most, and never beyond about 55 degrees north or south, so a zero does not mean a calm day.
-# Days that are not in the cache yet are fetched from NASA with the token in the request's
-# Authorization header. Days already in the cache need no token.
+# Days that are not in the cache yet are fetched from NASA, which needs the service's token.
+# Days already in the cache need none.
 @app.get("/api/lightning/flashes")
 def flashes(lat: str | None = None, lon: str | None = None, start: str | None = None, end: str | None = None,
-            radius: str | None = None, pitch: str | None = None, low: str | None = None, high: str | None = None,
-            authorization: str | None = Header(default=None)):
+            radius: str | None = None, pitch: str | None = None, low: str | None = None, high: str | None = None):
     pitch_settings = pitch_options(pitch, low, high)
     latitude, longitude = parse_number(lat), parse_number(lon)
     first, last = parse_time(start), parse_time(end)
@@ -384,7 +390,7 @@ def flashes(lat: str | None = None, lon: str | None = None, start: str | None = 
         return []
 
     urls = sorted(files_for(days))
-    fill_cache(urls, authorization)
+    fill_cache(urls)
     seen = numpy.concatenate([numpy.fromfile(flash_path(url), FLASH) for url in urls] + [numpy.empty(0, FLASH)])
     there, here = numpy.radians(seen["lat"].astype("f8")), math.radians(latitude)
     across = numpy.radians(seen["lon"].astype("f8") - longitude)
@@ -396,9 +402,29 @@ def flashes(lat: str | None = None, lon: str | None = None, start: str | None = 
                       for day, count in zip(days, counts)], pitch_settings)
 
 
+# The first requests to NASA are slower than later ones, so the service makes some while it
+# starts instead of leaving that wait to the first lookup.
+def warm_up():
+    try:
+        token = load_token()
+        response = http.get(CATALOG_URL, timeout=60, params={
+            "collection_concept_id": SPACE_STATION_LIGHTNING, "page_size": MAX_REQUESTS,
+            "readable_granule_name": "*.nc", "options[readable_granule_name][pattern]": "true"})
+        response.raise_for_status()
+        urls = [link["href"] for entry in response.json()["feed"]["entry"] for link in entry["links"]
+                if link["rel"].endswith("/data#") and ORBIT_FILE.fullmatch(link["href"])]
+        with ThreadPoolExecutor(max_workers=len(urls)) as workers:
+            list(workers.map(lambda url: fetch_blocks(signed_address(url, token), 0, 1), urls))
+        print("Ready.", flush=True)
+    except Exception:
+        print("Could not reach NASA while starting. Lookups will try again when asked.", flush=True)
+    finally:
+        warm.set()
+
+
 @app.get("/api/lightning/ready")
 def ready():
-    return {"ready": True}
+    return JSONResponse({"ready": warm.is_set()}, status_code=200 if warm.is_set() else 503)
 
 
 @app.exception_handler(404)
@@ -411,8 +437,16 @@ if __name__ == "__main__":
     for argument in sys.argv[1:]:
         if not argument.isdigit():
             raise SystemExit("The only thing to give when starting is a port number. "
-                             "The NASA token now comes with each request, not at the start.")
+                             "The NASA token is read from the EARTHDATA_TOKEN environment variable.")
         port = int(argument)
     print(f"The lightning service is running at http://127.0.0.1:{port}")
+    try:
+        load_token()
+    except ServiceError as error:
+        print(error.message + " Until then only days already in the cache can be looked up.")
+    else:
+        print("Opening connections to NASA, which takes a few seconds.")
+        warm.clear()
+        Thread(target=warm_up, daemon=True).start()
     print("Press Ctrl+C to stop.", flush=True)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

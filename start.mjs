@@ -38,8 +38,12 @@ const services = [
     { name: "Air pollution", port: 8003, command: process.execPath, args: ["API/pollution_api.mjs", "8003"],
       ready: "http://127.0.0.1:8003/api/pollution/ready" }
 ];
-// Night lights and lightning need no token to start. The page's user gives their NASA Earthdata
-// token there, and it travels with each request.
+// Night lights and lightning take their NASA Earthdata token from the EARTHDATA_TOKEN environment
+// variable, which they inherit from here. In a GitHub Codespace the repository secret of that name
+// fills it in. The token itself is never printed.
+console.log(process.env.EARTHDATA_TOKEN
+    ? "A NASA token is set in EARTHDATA_TOKEN, so night lights and lightning can fetch from NASA."
+    : "No NASA token is set in EARTHDATA_TOKEN, so night lights and new lightning days will be refused.");
 const python = findPython();
 if (python) {
     services.push(
@@ -145,7 +149,9 @@ process.on("exit", () => {
     for (const child of started) child.kill();
 });
 
-console.log("Starting the services.");
+console.log(process.env.EARTHDATA_TOKEN && python
+    ? "Starting the services. Night lights and lightning take up to half a minute."
+    : "Starting the services.");
 await Promise.all(services.map(start));
 pages.listen(PAGE_PORT, "127.0.0.1", () => {
     console.log(`\nOpen http://127.0.0.1:${PAGE_PORT}/ in a browser.`);
