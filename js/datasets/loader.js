@@ -27,6 +27,29 @@ export function datasetPeriod(name) {
     return periods[name];
 }
 
+// Where each dataset's service is found at the page's own address when start.mjs serves the page.
+const pageAddresses = {
+    ocean: "/api/ocean",
+    "city-lights": "/api/city-lights",
+    lightning: "/api/lightning",
+    pollution: "/api/pollution"
+};
+
+// start.mjs answers data requests at the page's own address and hands them on to the services.
+// Going through it works where the browser cannot reach the services' own ports, as in a GitHub
+// Codespace. This asks once whether the page is being served that way.
+let throughPage = null;
+async function servicesThroughPage() {
+    if (throughPage === null) {
+        try {
+            throughPage = typeof location !== "undefined" && (await fetch("/api/through-page")).ok;
+        } catch {
+            throughPage = false;
+        }
+    }
+    return throughPage;
+}
+
 // Fetches the measurements for one dataset at one place and period.
 // Returns [{ timestamp, date, value }] with timestamp in seconds since the Unix epoch,
 // ready for the functions in processing.js. The dataset's service must be running.
@@ -36,6 +59,9 @@ export async function loadDataset(name, startTime, endTime, lat, lon, options = 
     const load = loaders[name];
     if (!load) {
         throw new Error(`Unknown dataset: ${name}`);
+    }
+    if (options.serviceUrl === undefined && await servicesThroughPage()) {
+        options = { ...options, serviceUrl: pageAddresses[name] };
     }
     return load(startTime, endTime, lat, lon, options);
 }
