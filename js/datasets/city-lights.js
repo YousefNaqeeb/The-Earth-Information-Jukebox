@@ -28,12 +28,15 @@ export async function isCityLightsReady(serviceUrl = SERVICE_URL) {
 // the functions in processing.js. Dark places, including the sea, give zeros. The list is empty
 // where NASA has no file for that part of the world.
 // Pass null for startTime and endTime to get every year.
-// The lookup runs in the night lights service, which must be running. NASA requires a login for
-// this data, so the service needs a NASA Earthdata token in its NASA_EARTHDATA_TOKEN environment variable.
-// Options: pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz)
-// to each measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
+// The lookup runs in the night lights service, which must be running.
+// Options:
+//   token: a NASA Earthdata token, which NASA requires for this data. It is sent to the service with
+//     the request and passed on to NASA. Without it the service uses its own token, from its
+//     NASA_EARTHDATA_TOKEN environment variable, and if it has none the lookup fails with a message.
+//   pitch: "log" or "linear" makes the service add normalized (0 to 1) and frequency (hertz) to each
+//     measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
 export async function getCityLights(startTime, endTime, lat, lon, options = {}) {
-    const { pitch, low, high, serviceUrl = SERVICE_URL } = options;
+    const { token, pitch, low, high, serviceUrl = SERVICE_URL } = options;
     const query = new URLSearchParams({ lat, lon });
     if (startTime != null) query.set("start", toUnixSeconds(startTime));
     if (endTime != null) query.set("end", toUnixSeconds(endTime));
@@ -44,7 +47,9 @@ export async function getCityLights(startTime, endTime, lat, lon, options = {}) 
     let response;
     let body;
     try {
-        response = await fetch(`${serviceUrl}/brightness?${query}`);
+        response = await fetch(`${serviceUrl}/brightness?${query}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         body = await response.json();
     } catch {
         throw new Error(NOT_RUNNING);

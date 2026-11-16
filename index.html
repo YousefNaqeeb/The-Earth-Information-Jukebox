@@ -74,6 +74,7 @@
 
         input[type="number"],
         input[type="date"],
+        input[type="password"],
         select {
             padding: 9px;
             width: 100%;
@@ -341,6 +342,25 @@
                     ></select>
                 </div>
 
+                <div class="control" id="tokenControl" hidden>
+                    <label for="earthdataToken">
+                        NASA Earthdata token
+                    </label>
+
+                    <input
+                        type="password"
+                        id="earthdataToken"
+                        autocomplete="off"
+                        aria-describedby="tokenHelp"
+                    >
+
+                    <span class="muted" id="tokenHelp">
+                        NASA asks for a free Earthdata login for this dataset.
+                        Leave this empty to use the project's own token, or enter yours.
+                        A token entered here is sent with the request and is not stored.
+                    </span>
+                </div>
+
             </div>
 
             <p class="muted" id="periodHelp"></p>
@@ -591,7 +611,8 @@
 
     import {
         loadDataset,
-        datasetPeriod
+        datasetPeriod,
+        datasetNeedsToken
     } from "./js/datasets/loader.js";
 
 
@@ -647,6 +668,8 @@ exploreButton.addEventListener("click", () => {
     datasetTitle.textContent = datasetNames[selectedDataset];
 
     showPeriodInputs(selectedDataset);
+
+    tokenControl.hidden = !datasetNeedsToken(selectedDataset);
 
     clearMeasurements();
 
@@ -726,6 +749,10 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
     const endYearSelect = document.getElementById("endYear");
 
     const periodHelp = document.getElementById("periodHelp");
+
+    const tokenControl = document.getElementById("tokenControl");
+
+    const tokenInput = document.getElementById("earthdataToken");
 
 
     // PLACE AND PERIOD INPUTS
@@ -1399,6 +1426,11 @@ status.textContent =
 
         loadStatus.textContent = `Loading ${datasetNames[dataset]} data.`;
 
+        // A token the user typed goes along with requests for the datasets that take one.
+        const options = datasetNeedsToken(dataset) && tokenInput.value.trim()
+            ? { token: tokenInput.value.trim() }
+            : {};
+
         try {
 
             const loaded = await loadDataset(
@@ -1406,7 +1438,8 @@ status.textContent =
                 startTime,
                 endTime,
                 latitude,
-                longitude
+                longitude,
+                options
             );
 
             if (request !== latestRequest) return;

@@ -187,9 +187,12 @@ function sendJson(response, status, value) {
 }
 
 // Hands a data request from the page on to the service it is for, and the answer back.
-async function passOn(service, url, response) {
+// A NASA token sent with the request travels on with it, and is not kept or printed here.
+async function passOn(service, request, url, response) {
     try {
-        const answer = await fetch(`http://127.0.0.1:${service.port}${url.pathname}${url.search}`);
+        const answer = await fetch(`http://127.0.0.1:${service.port}${url.pathname}${url.search}`, {
+            headers: request.headers.authorization ? { Authorization: request.headers.authorization } : {}
+        });
         response.writeHead(answer.status, {
             "Content-Type": answer.headers.get("content-type") || "application/json; charset=utf-8",
             "Cache-Control": "no-store"
@@ -214,7 +217,7 @@ const pages = http.createServer(async (request, response) => {
         }
         const service = services.find(one => url.pathname.startsWith(one.address + "/"));
         if (service) {
-            await passOn(service, url, response);
+            await passOn(service, request, url, response);
             return;
         }
         const name = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
@@ -250,13 +253,14 @@ process.on("exit", () => {
     for (const child of started) child.kill();
 });
 
-// Night lights and lightning take their NASA Earthdata token from the NASA_EARTHDATA_TOKEN
-// environment variable, which they inherit from here. In a GitHub Codespace the repository secret
-// of that name fills it in. The token itself is never printed.
+// Night lights and lightning use the NASA Earthdata token sent with a request, as typed into the
+// page. A request without one uses the NASA_EARTHDATA_TOKEN environment variable, which the two
+// services inherit from here and which a GitHub Codespace fills in from the repository secret of
+// that name. The token itself is never printed.
 const hasToken = Boolean(process.env.NASA_EARTHDATA_TOKEN);
 console.log(hasToken
-    ? "A NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and lightning can fetch from NASA."
-    : "No NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and new lightning days will be refused.");
+    ? "A NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and lightning work without one typed into the page."
+    : "No NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and new lightning days need one typed into the page.");
 console.log(hasToken && !pythonProblem()
     ? "Starting the four services. Night lights and lightning take up to half a minute."
     : "Starting the four services.");
