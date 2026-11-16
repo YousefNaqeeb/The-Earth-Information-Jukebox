@@ -1,6 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8001/api/city-lights";
-const NOT_RUNNING = "The night lights service did not answer. Start it in a terminal with your NASA token: "
-    + "py API/city_lights_api.py path-to-token.txt";
+const NOT_RUNNING = "The night lights service did not answer. Start it in a terminal with: py API/city_lights_api.py";
 
 // Accepts a Date, a date string such as "2015-01-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {
@@ -13,8 +12,7 @@ function toUnixSeconds(time) {
     return time;
 }
 
-// True once the night lights service is running and has finished opening its connections to NASA.
-// False while it is still starting, or when it is not running at all.
+// True when the night lights service is running.
 export async function isCityLightsReady(serviceUrl = SERVICE_URL) {
     try {
         return (await fetch(`${serviceUrl}/ready`)).ok;
@@ -30,10 +28,13 @@ export async function isCityLightsReady(serviceUrl = SERVICE_URL) {
 // where NASA has no file for that part of the world.
 // Pass null for startTime and endTime to get every year.
 // The lookup runs in the night lights service, which must be running.
-// Options: pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz)
-// to each measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
+// Options:
+//   token: the user's NASA Earthdata token, which NASA requires for this data. It is sent to the
+//     service with the request and passed on to NASA. Without it the lookup fails with a message.
+//   pitch: "log" or "linear" makes the service add normalized (0 to 1) and frequency (hertz) to each
+//     measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
 export async function getCityLights(startTime, endTime, lat, lon, options = {}) {
-    const { pitch, low, high, serviceUrl = SERVICE_URL } = options;
+    const { token, pitch, low, high, serviceUrl = SERVICE_URL } = options;
     const query = new URLSearchParams({ lat, lon });
     if (startTime != null) query.set("start", toUnixSeconds(startTime));
     if (endTime != null) query.set("end", toUnixSeconds(endTime));
@@ -44,7 +45,9 @@ export async function getCityLights(startTime, endTime, lat, lon, options = {}) 
     let response;
     let body;
     try {
-        response = await fetch(`${serviceUrl}/brightness?${query}`);
+        response = await fetch(`${serviceUrl}/brightness?${query}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         body = await response.json();
     } catch {
         throw new Error(NOT_RUNNING);

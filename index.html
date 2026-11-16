@@ -131,8 +131,13 @@
             font: inherit;
         }
 
+        .control[hidden] {
+            display: none;
+        }
+
         input[type="number"],
-        input[type="text"] {
+        input[type="text"],
+        input[type="password"] {
             padding: 9px;
             width: 100%;
             border: 1px solid #aab6c5;
@@ -301,6 +306,24 @@
                         id="endDate"
                         required
                     >
+                </div>
+
+                <div class="control" id="tokenControl" hidden>
+                    <label for="earthdataToken">
+                        NASA Earthdata token
+                    </label>
+
+                    <input
+                        type="password"
+                        id="earthdataToken"
+                        autocomplete="off"
+                        aria-describedby="tokenHelp"
+                    >
+
+                    <span class="muted" id="tokenHelp">
+                        NASA asks for a free Earthdata login for this dataset.
+                        Your token is sent with the request and is not stored.
+                    </span>
                 </div>
 
             </div>
@@ -532,7 +555,8 @@
    } from "./js/datasets/visualizer.js";
 
     import {
-        loadDataset
+        loadDataset,
+        datasetNeedsToken
     } from "./js/datasets/loader.js";
 
 
@@ -586,6 +610,8 @@ exploreButton.addEventListener("click", () => {
     const datasetTitle = document.getElementById("selectedDatasetTitle");
 
     datasetTitle.textContent = datasetNames[selectedDataset];
+
+    tokenControl.hidden = !datasetNeedsToken(selectedDataset);
 
     clearMeasurements();
 
@@ -651,6 +677,10 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
     const placeForm = document.getElementById("placeForm");
 
     const loadStatus = document.getElementById("loadStatus");
+
+    const tokenControl = document.getElementById("tokenControl");
+
+    const tokenInput = document.getElementById("earthdataToken");
 
 
     // STOP AUDIO THAT IS STILL PLAYING
@@ -1096,6 +1126,11 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
         loadStatus.textContent = `Loading ${datasetNames[dataset]} data.`;
 
+        // The token the user typed goes along with requests for the datasets that need one.
+        const options = datasetNeedsToken(dataset)
+            ? { token: tokenInput.value.trim() }
+            : {};
+
         try {
 
             const loaded = await loadDataset(
@@ -1103,7 +1138,8 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
                 startTime,
                 endTime,
                 latitude,
-                longitude
+                longitude,
+                options
             );
 
             if (request !== latestRequest) return;

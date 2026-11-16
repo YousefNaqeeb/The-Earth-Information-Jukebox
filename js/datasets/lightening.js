@@ -1,6 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8002/api/lightning";
-const NOT_RUNNING = "The lightning service did not answer. Start it in a terminal with your NASA token: "
-    + "py API/lightning_api.py path-to-token.txt";
+const NOT_RUNNING = "The lightning service did not answer. Start it in a terminal with: py API/lightning_api.py";
 
 // Accepts a Date, a date string such as "2019-10-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {
@@ -13,8 +12,7 @@ function toUnixSeconds(time) {
     return time;
 }
 
-// True once the lightning service is running and has finished opening its connections to NASA.
-// False while it is still starting, or when it is not running at all.
+// True when the lightning service is running.
 export async function isLightningReady(serviceUrl = SERVICE_URL) {
     try {
         return (await fetch(`${serviceUrl}/ready`)).ok;
@@ -33,11 +31,15 @@ export async function isLightningReady(serviceUrl = SERVICE_URL) {
 // At most 31 days can be asked for at once. Days nobody has asked for before take about 2 seconds
 // each, and are instant from then on.
 // The lookup runs in the lightning service, which must be running.
-// Options: radius is how far from the point a flash may be, in kilometres (100 unless given).
-// pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz) to each
-// measurement, with the quietest day at low and the busiest at high (220 and 880 unless given).
+// Options:
+//   token: the user's NASA Earthdata token, which NASA requires for this data. It is sent to the
+//     service with the request and passed on to NASA. Days somebody has asked for before come from
+//     the service's cache and need no token. Other days fail with a message without it.
+//   radius: how far from the point a flash may be, in kilometres (100 unless given).
+//   pitch: "log" or "linear" makes the service add normalized (0 to 1) and frequency (hertz) to each
+//     measurement, with the quietest day at low and the busiest at high (220 and 880 unless given).
 export async function getLightning(startTime, endTime, lat, lon, options = {}) {
-    const { radius, pitch, low, high, serviceUrl = SERVICE_URL } = options;
+    const { token, radius, pitch, low, high, serviceUrl = SERVICE_URL } = options;
     const query = new URLSearchParams({ lat, lon });
     if (startTime != null) query.set("start", toUnixSeconds(startTime));
     if (endTime != null) query.set("end", toUnixSeconds(endTime));
@@ -49,7 +51,9 @@ export async function getLightning(startTime, endTime, lat, lon, options = {}) {
     let response;
     let body;
     try {
-        response = await fetch(`${serviceUrl}/flashes?${query}`);
+        response = await fetch(`${serviceUrl}/flashes?${query}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         body = await response.json();
     } catch {
         throw new Error(NOT_RUNNING);
