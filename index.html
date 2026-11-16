@@ -74,6 +74,7 @@
 
         input[type="number"],
         input[type="date"],
+        input[type="password"],
         select {
             padding: 9px;
             width: 100%;
@@ -341,6 +342,39 @@
                     ></select>
                 </div>
 
+                <div class="control" id="tokenControl" hidden>
+                    <label for="earthdataToken">
+                        NASA Earthdata token
+                    </label>
+
+                    <input
+                        type="password"
+                        id="earthdataToken"
+                        autocomplete="off"
+                        aria-describedby="tokenHelp tokenStatus"
+                    >
+
+                    <span class="muted" id="tokenHelp">
+                        NASA asks for a free Earthdata login for this dataset.
+                        Paste your token and save it. It is kept in this browser
+                        and sent with each request that needs it.
+                    </span>
+
+                    <div class="button-row">
+
+                        <button type="button" id="saveToken">
+                            Save token
+                        </button>
+
+                        <button type="button" id="removeToken">
+                            Remove saved token
+                        </button>
+
+                    </div>
+
+                    <p id="tokenStatus" aria-live="polite"></p>
+                </div>
+
             </div>
 
             <p class="muted" id="periodHelp"></p>
@@ -591,7 +625,12 @@
 
     import {
         loadDataset,
-        datasetPeriod
+        datasetPeriod,
+        datasetNeedsToken,
+        savedToken,
+        saveToken,
+        removeSavedToken,
+        looksLikeToken
     } from "./js/datasets/loader.js";
 
 
@@ -647,6 +686,10 @@ exploreButton.addEventListener("click", () => {
     datasetTitle.textContent = datasetNames[selectedDataset];
 
     showPeriodInputs(selectedDataset);
+
+    tokenControl.hidden = !datasetNeedsToken(selectedDataset);
+
+    showTokenState();
 
     clearMeasurements();
 
@@ -726,6 +769,76 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
     const endYearSelect = document.getElementById("endYear");
 
     const periodHelp = document.getElementById("periodHelp");
+
+    const tokenControl = document.getElementById("tokenControl");
+
+    const tokenInput = document.getElementById("earthdataToken");
+
+    const tokenStatus = document.getElementById("tokenStatus");
+
+    const removeTokenButton = document.getElementById("removeToken");
+
+
+    // NASA TOKEN
+    // The token is kept in this browser by loader.js, which also sends it with each request
+    // for a dataset that needs one. It is never shown again once it has been saved.
+
+    function showTokenState(message) {
+
+        const saved = savedToken() !== "";
+
+        removeTokenButton.disabled = !saved;
+
+        tokenStatus.textContent = message || (saved
+            ? "A token is saved in this browser and is sent with each request that needs it."
+            : "No token is saved in this browser.");
+
+    }
+
+    document.getElementById("saveToken").addEventListener("click", () => {
+
+        const token = tokenInput.value.trim();
+
+        if (token === "") {
+            showTokenState("Paste your NASA Earthdata token into the field first.");
+            tokenInput.focus();
+            return;
+        }
+
+        if (!looksLikeToken(token)) {
+            showTokenState(
+                "That does not look like a NASA Earthdata token. " +
+                "It should be one long piece of text with no spaces."
+            );
+            tokenInput.focus();
+            return;
+        }
+
+        if (!saveToken(token)) {
+            showTokenState(
+                "This browser would not store the token. " +
+                "It stays in the field and is used while this page is open."
+            );
+            return;
+        }
+
+        tokenInput.value = "";
+
+        showTokenState(
+            "Token saved in this browser. It is sent with each request that needs it."
+        );
+
+    });
+
+    removeTokenButton.addEventListener("click", () => {
+
+        removeSavedToken();
+
+        showTokenState("The saved token was removed from this browser.");
+
+        tokenInput.focus();
+
+    });
 
 
     // PLACE AND PERIOD INPUTS
@@ -1399,6 +1512,12 @@ status.textContent =
 
         loadStatus.textContent = `Loading ${datasetNames[dataset]} data.`;
 
+        // A token typed into the field but not saved is used for this request. Otherwise
+        // loader.js sends the one saved in this browser.
+        const options = datasetNeedsToken(dataset) && tokenInput.value.trim()
+            ? { token: tokenInput.value.trim() }
+            : {};
+
         try {
 
             const loaded = await loadDataset(
@@ -1406,7 +1525,8 @@ status.textContent =
                 startTime,
                 endTime,
                 latitude,
-                longitude
+                longitude,
+                options
             );
 
             if (request !== latestRequest) return;

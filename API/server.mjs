@@ -7,7 +7,8 @@ import { normalizeMeasurements, mapLinear, mapLogarithmic } from "../js/datasets
 // The project's top folder, one level above this file.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OCEAN_DIR = path.join(ROOT, "assets", "data", "OCEAN");
-const PORT = Number(process.argv[2]) || 8000;
+// Port 8000 is left free, since that is where a separate front end server usually runs.
+const PORT = Number(process.argv[2]) || 8004;
 const DAY_SECONDS = 86400;
 const PITCH_METHODS = new Map([["log", mapLogarithmic], ["logarithmic", mapLogarithmic], ["linear", mapLinear]]);
 const DEFAULT_LOW_HZ = 220;

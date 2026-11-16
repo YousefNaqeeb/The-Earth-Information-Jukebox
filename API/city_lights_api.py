@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 import h5py
 import requests
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -26,12 +26,12 @@ from processing import map_linear, map_logarithmic, normalize_measurements
 # Built into a single program with PyInstaller, the cache and the site sit next to the program,
 # not in the temporary folder it unpacks itself into.
 HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
-# The NASA Earthdata token is taken from this environment variable. In a GitHub Codespace the
-# repository secret of the same name fills it in. The token is only ever sent to NASA, and is
-# never printed or saved.
-TOKEN_VARIABLE = "EARTHDATA_TOKEN"
-NO_TOKEN = ("The night lights service has no NASA Earthdata token. Set the EARTHDATA_TOKEN environment variable, "
-            "or in a Codespace the repository secret of that name, and start the service again.")
+# The NASA Earthdata token can come with a request, in the header "Authorization: Bearer <token>".
+# A request without one uses this environment variable, which in a GitHub Codespace the repository
+# secret of the same name fills in. The token is only ever sent to NASA, and is never printed or saved.
+TOKEN_VARIABLE = "NASA_EARTHDATA_TOKEN"
+NO_TOKEN = ("A NASA Earthdata token is needed for this lookup. None came with the request, and the night lights "
+            "service has none of its own in the NASA_EARTHDATA_TOKEN environment variable.")
 TOKEN_SHAPE = re.compile(r"[A-Za-z0-9._~+/=-]+", re.ASCII)
 # The cache sits in the project's top folder, one level above this script.
 CACHE_DIR = HERE.parent / "city_lights_cache"
@@ -48,7 +48,7 @@ DEFAULT_LOW_HZ = 220
 DEFAULT_HIGH_HZ = 880
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["Authorization"])
 
 lock = Lock()
 warm = Event()
@@ -94,9 +94,8 @@ def load_token():
 
     return token
 
-    raise ServiceError(500, NO_TOKEN)
     if not TOKEN_SHAPE.fullmatch(token):
-        raise ServiceError(500, "What is in EARTHDATA_TOKEN does not look like a NASA Earthdata token.")
+        raise ServiceError(401, "The token given does not look like a NASA Earthdata token.")
     return token
 
 
@@ -108,7 +107,7 @@ def signed_address(url, token, session):
     response.close()
     target = response.headers.get("Location", "")
     if response.status_code not in (301, 302, 303, 307, 308) or "urs.earthdata.nasa.gov" in target:
-        raise ServiceError(502, "NASA did not accept the Earthdata token. It may have expired.")
+        raise ServiceError(401, "NASA did not accept the Earthdata token. It may have expired.")
     expires = parse_qs(urlparse(target).query).get("Expires", [None])[0]
     return target, float(expires) if expires else time.time() + 300
 
@@ -341,9 +340,12 @@ def add_pitch(series, options):
 
 # Yearly night-time brightness at one point, in nanowatts per square centimetre per steradian,
 # from NASA's Black Marble yearly product (VNP46A4), one value per year from 2012 on.
+# The values are fetched from NASA with the token in the request's Authorization header, or with
+# the service's own token when the request has none.
 @app.get("/api/city-lights/brightness")
 def brightness(lat: str | None = None, lon: str | None = None, start: str | None = None, end: str | None = None,
-               pitch: str | None = None, low: str | None = None, high: str | None = None):
+               pitch: str | None = None, low: str | None = None, high: str | None = None,
+               authorization: str | None = Header(default=None)):
     pitch_settings = pitch_options(pitch, low, high)
     latitude, longitude = parse_number(lat), parse_number(lon)
     first, last = parse_time(start, -math.inf), parse_time(end, math.inf)
@@ -363,7 +365,7 @@ def brightness(lat: str | None = None, lon: str | None = None, start: str | None
     with lock:
         series = answers.get(key)
     if series is None:
-        token = load_token()
+        token = load_token(authorization)
         files = files_for((tile_col, tile_row))
         indexes = indexes_for(files, token)
         with ThreadPoolExecutor(max_workers=max(1, len(files))) as readers:
@@ -414,7 +416,7 @@ if __name__ == "__main__":
     port = 8001
     for argument in sys.argv[1:]:
         if not argument.isdigit():
-            raise SystemExit(
+           raise SystemExit(
                 "The only thing to give when starting is a port number. "
                 "The NASA token is read from the EARTHDATA_TOKEN environment variable."
             )
