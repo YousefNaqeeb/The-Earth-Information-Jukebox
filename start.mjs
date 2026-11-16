@@ -80,7 +80,7 @@ function missingFile(file, hint) {
 
 const outOfDate = "The copy may be out of date, so try: git pull";
 const services = [
-    { name: "Ocean", port: 8000, address: "/api/ocean", command: process.execPath, args: ["API/server.mjs", "8000"],
+    { name: "Ocean", port: 8004, address: "/api/ocean", command: process.execPath, args: ["API/server.mjs", "8004"],
       problem: missingFile("API/server.mjs", outOfDate)
           || missingFile("assets/data/OCEAN/index.json", "The ocean data did not come down with the project.") },
     { name: "Night lights", port: 8001, address: "/api/city-lights", command: python?.executable, args: ["API/city_lights_api.py", "8001"],
