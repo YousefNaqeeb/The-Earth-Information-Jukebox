@@ -32,7 +32,7 @@ export async function isLightningReady(serviceUrl = SERVICE_URL) {
 // At most 31 days can be asked for at once. Days nobody has asked for before take about 2 seconds
 // each, and are instant from then on.
 // The lookup runs in the lightning service, which must be running. NASA requires a login for this
-// data, so to fetch new days the service needs a NASA Earthdata token in its EARTHDATA_TOKEN
+// data, so to fetch new days the service needs a NASA Earthdata token in its NASA_EARTHDATA_TOKEN
 // environment variable. Days already in its cache need none.
 // Options: radius is how far from the point a flash may be, in kilometres (100 unless given).
 // pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz) to each

@@ -4,74 +4,6 @@
 
 <head>
   
-<section id="datasetScreen" class="dataset-screen">
-
-    <header class="dataset-header">
-        <p class="eyebrow">THE EARTH INFORMATION JUKEBOX</p>
-        <h1>Explore Our Planet</h1>
-        <p>
-            Choose an Earth phenomenon to explore through
-            scientific data, mathematics, and sound.
-        </p>
-    </header>
-
-    <div class="dataset-grid">
-
-        <button class="dataset-card" data-dataset="pollution"
-            aria-pressed="false">
-            <img src="./assets/pollution.jpg"
-                 alt="Satellite observation of atmospheric pollution"
-                 onerror="this.style.display='none'">
-            <span class="dataset-card-text">
-                <strong>Pollution</strong>
-                <span>Explore atmospheric pollution data.</span>
-            </span>
-        </button>
-
-        <button class="dataset-card" data-dataset="lightning"
-            aria-pressed="false">
-            <img src="./assets/lightning.jpg"
-                 alt="Lightning observed from above Earth"
-                 onerror="this.style.display='none'">
-            <span class="dataset-card-text">
-                <strong>Lightning</strong>
-                <span>Explore lightning activity and patterns.</span>
-            </span>
-        </button>
-
-        <button class="dataset-card" data-dataset="city-lights"
-            aria-pressed="false">
-            <img src="./assets/city-lights.jpg"
-                 alt="Illuminated cities observed from space"
-                 onerror="this.style.display='none'">
-            <span class="dataset-card-text">
-                <strong>City Lights</strong>
-                <span>Explore nighttime illumination.</span>
-            </span>
-        </button>
-
-        <button class="dataset-card" data-dataset="ocean"
-            aria-pressed="false">
-            <img src="./assets/ocean-temperature.jpg"
-                 alt="Global ocean surface temperature map"
-                 onerror="this.style.display='none'">
-            <span class="dataset-card-text">
-                <strong>Ocean Temperature</strong>
-                <span>Explore sea surface temperature changes.</span>
-            </span>
-        </button>
-
-    </div>
-
-    <p id="selectionMessage" aria-live="polite">
-        Select a dataset to continue.
-    </p>
-
-    <button id="exploreButton" disabled>
-        Explore Dataset
-    </button>
-
-</section>
 
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -234,7 +166,79 @@
     </style>
 </head>
 
-<body>
+    <body>
+
+
+<section id="datasetScreen" class="dataset-screen">
+
+    <header class="dataset-header">
+        <p class="eyebrow">THE EARTH INFORMATION JUKEBOX</p>
+        <h1>Explore Our Planet</h1>
+        <p>
+            Choose an Earth phenomenon to explore through
+            scientific data, mathematics, and sound.
+        </p>
+    </header>
+
+    <div class="dataset-grid">
+
+        <button class="dataset-card" data-dataset="pollution"
+            aria-pressed="false">
+            <img src="./assets/pollution.jpg"
+                 alt="Satellite observation of atmospheric pollution"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Pollution</strong>
+                <span>Explore atmospheric pollution data.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="lightning"
+            aria-pressed="false">
+            <img src="./assets/lightning.jpg"
+                 alt="Lightning observed from above Earth"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Lightning</strong>
+                <span>Explore lightning activity and patterns.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="city-lights"
+            aria-pressed="false">
+            <img src="./assets/city-lights.jpg"
+                 alt="Illuminated cities observed from space"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>City Lights</strong>
+                <span>Explore nighttime illumination.</span>
+            </span>
+        </button>
+
+        <button class="dataset-card" data-dataset="ocean"
+            aria-pressed="false">
+            <img src="./assets/ocean-temperature.jpg"
+                 alt="Global ocean surface temperature map"
+                 onerror="this.style.display='none'">
+            <span class="dataset-card-text">
+                <strong>Ocean Temperature</strong>
+                <span>Explore sea surface temperature changes.</span>
+            </span>
+        </button>
+
+    </div>
+
+    <p id="selectionMessage" aria-live="polite">
+        Select a dataset to continue.
+    </p>
+
+    <button id="exploreButton" disabled>
+        Explore Dataset
+    </button>
+
+</section>
+
+
 
 <main id="workspaceScreen" hidden>
 
@@ -505,6 +509,19 @@
 
         </div>
 
+        <div class="control" style="margin-top: 18px;">
+
+    <label>
+        <input type="checkbox" id="enableDrumbeat">
+        Enable synchronized drumbeat
+    </label>
+
+    <p class="muted">
+        Percussion follows the playback duration.
+    </p>
+
+</div>
+
         <p id="status" aria-live="polite">
             Ready to explore.
         </p>
@@ -550,6 +567,11 @@
 <script type="module">
 
     // IMPORTS
+
+    import {
+    createDrumPattern,
+    playDrumbeat
+} from "./js/datasets/drumbeat.js";
 
     import {
         normalizeMeasurements,
@@ -1011,6 +1033,11 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
         console.log("Original measurements:", measurements);
         console.log("Normalized measurements:", normalized);
         console.log("Generated tones:", tones);
+        console.log("Graph container:", graphContainer);
+console.log("Measurements count:", measurements.length);
+console.log("Tones count:", tones.length);
+
+updateGraph();
 
         renderSequence(tones)
             .then(audioBuffer => {
@@ -1253,13 +1280,41 @@ document.getElementById("backToDatasets").addEventListener("click", () => {
 
         }
 
-        stopPlayback();
+   stopPlayback();
 
-        playingContext = playSequence(remainingTones);
+const audioContext = new AudioContext();
 
-        status.textContent =
-            `Playing from ${selectedTime.toFixed(2)} seconds.`;
+playingContext = playSequence(
+    remainingTones,
+    audioContext
+);
 
+const drumbeatEnabled =
+    document.getElementById("enableDrumbeat").checked;
+
+if (drumbeatEnabled) {
+
+    const remainingDuration = Math.max(
+        ...remainingTones.map(
+            tone => tone.startTime + tone.duration
+        )
+    );
+
+    const drumPattern = createDrumPattern(
+        remainingDuration
+    );
+
+    playDrumbeat(
+        drumPattern,
+        audioContext
+    );
+
+    console.log("Drumbeat tempo:", drumPattern.bpm, "BPM");
+
+}
+
+status.textContent =
+    `Playing from ${selectedTime.toFixed(2)} seconds.`;
     });
 
 

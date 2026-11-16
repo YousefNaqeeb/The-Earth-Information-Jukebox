@@ -29,7 +29,7 @@ export async function isCityLightsReady(serviceUrl = SERVICE_URL) {
 // where NASA has no file for that part of the world.
 // Pass null for startTime and endTime to get every year.
 // The lookup runs in the night lights service, which must be running. NASA requires a login for
-// this data, so the service needs a NASA Earthdata token in its EARTHDATA_TOKEN environment variable.
+// this data, so the service needs a NASA Earthdata token in its NASA_EARTHDATA_TOKEN environment variable.
 // Options: pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz)
 // to each measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
 export async function getCityLights(startTime, endTime, lat, lon, options = {}) {

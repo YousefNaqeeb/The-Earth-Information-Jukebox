@@ -38,12 +38,13 @@ const services = [
     { name: "Air pollution", port: 8003, command: process.execPath, args: ["API/pollution_api.mjs", "8003"],
       ready: "http://127.0.0.1:8003/api/pollution/ready" }
 ];
-// Night lights and lightning take their NASA Earthdata token from the EARTHDATA_TOKEN environment
-// variable, which they inherit from here. In a GitHub Codespace the repository secret of that name
-// fills it in. The token itself is never printed.
-console.log(process.env.EARTHDATA_TOKEN
-    ? "A NASA token is set in EARTHDATA_TOKEN, so night lights and lightning can fetch from NASA."
-    : "No NASA token is set in EARTHDATA_TOKEN, so night lights and new lightning days will be refused.");
+// Night lights and lightning take their NASA Earthdata token from the NASA_EARTHDATA_TOKEN
+// environment variable, which they inherit from here. In a GitHub Codespace the repository secret
+// of that name fills it in. The token itself is never printed.
+const hasToken = Boolean(process.env.NASA_EARTHDATA_TOKEN);
+console.log(hasToken
+    ? "A NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and lightning can fetch from NASA."
+    : "No NASA token is set in NASA_EARTHDATA_TOKEN, so night lights and new lightning days will be refused.");
 const python = findPython();
 if (python) {
     services.push(
@@ -149,7 +150,7 @@ process.on("exit", () => {
     for (const child of started) child.kill();
 });
 
-console.log(process.env.EARTHDATA_TOKEN && python
+console.log(hasToken && python
     ? "Starting the services. Night lights and lightning take up to half a minute."
     : "Starting the services.");
 await Promise.all(services.map(start));

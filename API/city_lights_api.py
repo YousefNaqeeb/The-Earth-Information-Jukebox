@@ -29,9 +29,9 @@ HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resol
 # The NASA Earthdata token is taken from this environment variable. In a GitHub Codespace the
 # repository secret of the same name fills it in. The token is only ever sent to NASA, and is
 # never printed or saved.
-TOKEN_VARIABLE = "EARTHDATA_TOKEN"
-NO_TOKEN = ("The night lights service has no NASA Earthdata token. Set the EARTHDATA_TOKEN environment variable, "
-            "or in a Codespace the repository secret of that name, and start the service again.")
+TOKEN_VARIABLE = "NASA_EARTHDATA_TOKEN"
+NO_TOKEN = ("The night lights service has no NASA Earthdata token. Set the NASA_EARTHDATA_TOKEN environment "
+            "variable, or in a Codespace the repository secret of that name, and start the service again.")
 TOKEN_SHAPE = re.compile(r"[A-Za-z0-9._~+/=-]+", re.ASCII)
 # The cache sits in the project's top folder, one level above this script.
 CACHE_DIR = HERE.parent / "city_lights_cache"
@@ -85,7 +85,7 @@ def load_token():
     if not token:
         raise ServiceError(500, NO_TOKEN)
     if not TOKEN_SHAPE.fullmatch(token):
-        raise ServiceError(500, "What is in EARTHDATA_TOKEN does not look like a NASA Earthdata token.")
+        raise ServiceError(500, "What is in NASA_EARTHDATA_TOKEN does not look like a NASA Earthdata token.")
     return token
 
 
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     for argument in sys.argv[1:]:
         if not argument.isdigit():
             raise SystemExit("The only thing to give when starting is a port number. "
-                             "The NASA token is read from the EARTHDATA_TOKEN environment variable.")
+                             "The NASA token is read from the NASA_EARTHDATA_TOKEN environment variable.")
         port = int(argument)
     print(f"The night lights service is running at http://127.0.0.1:{port}")
     try:
