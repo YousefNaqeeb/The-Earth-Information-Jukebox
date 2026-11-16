@@ -1,6 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8002/api/lightning";
-const NOT_RUNNING = "The lightning service did not answer. Start it in a terminal with your NASA token: "
-    + "py API/lightning_api.py path-to-token.txt";
+const NOT_RUNNING = "The lightning service did not answer. Start it in a terminal with: py API/lightning_api.py";
 
 // Accepts a Date, a date string such as "2019-10-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {
@@ -32,7 +31,9 @@ export async function isLightningReady(serviceUrl = SERVICE_URL) {
 // beyond about 55 degrees north or south, so many days are 0 even where storms are common.
 // At most 31 days can be asked for at once. Days nobody has asked for before take about 2 seconds
 // each, and are instant from then on.
-// The lookup runs in the lightning service, which must be running.
+// The lookup runs in the lightning service, which must be running. NASA requires a login for this
+// data, so to fetch new days the service needs a NASA Earthdata token in its EARTHDATA_TOKEN
+// environment variable. Days already in its cache need none.
 // Options: radius is how far from the point a flash may be, in kilometres (100 unless given).
 // pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz) to each
 // measurement, with the quietest day at low and the busiest at high (220 and 880 unless given).

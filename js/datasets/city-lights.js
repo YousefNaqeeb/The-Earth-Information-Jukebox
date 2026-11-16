@@ -1,6 +1,5 @@
 const SERVICE_URL = "http://127.0.0.1:8001/api/city-lights";
-const NOT_RUNNING = "The night lights service did not answer. Start it in a terminal with your NASA token: "
-    + "py API/city_lights_api.py path-to-token.txt";
+const NOT_RUNNING = "The night lights service did not answer. Start it in a terminal with: py API/city_lights_api.py";
 
 // Accepts a Date, a date string such as "2015-01-01", or a number of seconds since the Unix epoch.
 function toUnixSeconds(time) {
@@ -29,7 +28,8 @@ export async function isCityLightsReady(serviceUrl = SERVICE_URL) {
 // the functions in processing.js. Dark places, including the sea, give zeros. The list is empty
 // where NASA has no file for that part of the world.
 // Pass null for startTime and endTime to get every year.
-// The lookup runs in the night lights service, which must be running.
+// The lookup runs in the night lights service, which must be running. NASA requires a login for
+// this data, so the service needs a NASA Earthdata token in its EARTHDATA_TOKEN environment variable.
 // Options: pitch ("log" or "linear") makes the service add normalized (0 to 1) and frequency (hertz)
 // to each measurement, with the darkest year at low and the brightest at high (220 and 880 unless given).
 export async function getCityLights(startTime, endTime, lat, lon, options = {}) {

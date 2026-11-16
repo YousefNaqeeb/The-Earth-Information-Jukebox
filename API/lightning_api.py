@@ -7,6 +7,7 @@ import ssl
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
 from threading import Event, Lock, Thread
 
@@ -23,11 +24,13 @@ from processing import map_linear, map_logarithmic, normalize_measurements
 # Built into a single program with PyInstaller, the cache and the site sit next to the program,
 # not in the temporary folder it unpacks itself into.
 HERE = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
-# Used when no token is given on the command line.
-TOKEN_FILE = HERE / "APIToken.txt"
-NO_TOKEN = ("A NASA Earthdata token is needed. Give it when starting, either as the path to a file that holds it "
-            "or as the token itself, for example: py API/lightning_api.py path-to-token.txt")
-given_token = None
+# The NASA Earthdata token is taken from this environment variable. In a GitHub Codespace the
+# repository secret of the same name fills it in. The token is only ever sent to NASA, and is
+# never printed or saved.
+TOKEN_VARIABLE = "EARTHDATA_TOKEN"
+NO_TOKEN = ("The lightning service has no NASA Earthdata token. Set the EARTHDATA_TOKEN environment variable, "
+            "or in a Codespace the repository secret of that name, and start the service again.")
+TOKEN_SHAPE = re.compile(r"[A-Za-z0-9._~+/=-]+", re.ASCII)
 # The cache sits in the project's top folder, one level above this script.
 CACHE_DIR = HERE.parent / "lightning_cache"
 CATALOG_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
@@ -83,6 +86,9 @@ class SharedCertificates(requests.adapters.HTTPAdapter):
 
 http = requests.Session()
 http.mount("https://", SharedCertificates(pool_maxsize=MAX_REQUESTS + 4))
+# NASA answers a good token with a login cookie. Keeping it would let later requests in on the
+# strength of an earlier request's token, so no cookies are kept and every request stands on its own.
+http.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
 
 
 class ServiceError(Exception):
@@ -103,14 +109,18 @@ def nasa_unreachable(request, error):
 
 
 def load_token():
-    if given_token:
-        return given_token
-    if os.environ.get("NASA_EARTHDATA_TOKEN"):
-        return os.environ["NASA_EARTHDATA_TOKEN"]
-    try:
-        return TOKEN_FILE.read_text().strip()
-    except OSError:
+    token = (
+        os.environ.get(TOKEN_VARIABLE, "").strip()
+        or os.environ.get("NASA_EARTHDATA_TOKEN", "").strip()
+    )
+
+    if not token:
         raise ServiceError(500, NO_TOKEN)
+
+    if not TOKEN_SHAPE.fullmatch(token):
+        raise ServiceError(500, "What is in EARTHDATA_TOKEN does not look like a NASA Earthdata token.")
+
+    return token
 
 
 def orbit_name(url):
@@ -289,14 +299,15 @@ def list_days(days):
 
 # Makes sure every one of these orbit files is in the cache. Only one lookup downloads at a time,
 # which keeps the number of requests in flight at MAX_REQUESTS however many lookups arrive.
+# The token is only needed, and only looked for, when something has to be downloaded.
 def fill_cache(urls):
     if all(flash_path(url).exists() for url in urls):
         return
+    token = load_token()
     with writing:
         missing = [url for url in urls if not flash_path(url).exists()]
         if not missing:
             return
-        token = load_token()
         workers = ThreadPoolExecutor(max_workers=min(MAX_REQUESTS, len(missing)))
         try:
             list(workers.map(lambda url: cache_flashes(url, token), missing))
@@ -363,6 +374,8 @@ def add_pitch(series, options):
 # March 2017 to November 2023). One value per day whose midnight is inside the time range.
 # The sensor watches a place for about a minute and a half as it passes, a few times a day at
 # most, and never beyond about 55 degrees north or south, so a zero does not mean a calm day.
+# Days that are not in the cache yet are fetched from NASA, which needs the service's token.
+# Days already in the cache need none.
 @app.get("/api/lightning/flashes")
 def flashes(lat: str | None = None, lon: str | None = None, start: str | None = None, end: str | None = None,
             radius: str | None = None, pitch: str | None = None, low: str | None = None, high: str | None = None):
@@ -426,24 +439,20 @@ def unknown_address(request, error):
 
 
 if __name__ == "__main__":
-    # Arguments, in any order: a port number, and the NASA token as a file path or as the token itself.
     port = 8002
     for argument in sys.argv[1:]:
-        if argument.isdigit():
-            port = int(argument)
-        elif argument.count(".") == 2 and len(argument) > 100 and not any(mark in argument for mark in (os.sep, "/", ":")):
-            given_token = argument
-        else:
-            try:
-                given_token = Path(argument).read_text().strip()
-            except OSError:
-                raise SystemExit(f"{argument} is not a readable file and does not look like a NASA Earthdata token.")
+        if not argument.isdigit():
+            raise SystemExit("The only thing to give when starting is a port number. "
+                             "The NASA token is read from the EARTHDATA_TOKEN environment variable.")
+        port = int(argument)
+    print(f"The lightning service is running at http://127.0.0.1:{port}")
     try:
         load_token()
     except ServiceError as error:
-        raise SystemExit(error.message)
-    print(f"The lightning service is running at http://127.0.0.1:{port}")
-    print("Opening connections to NASA, which takes a few seconds. Press Ctrl+C to stop.", flush=True)
-    warm.clear()
-    Thread(target=warm_up, daemon=True).start()
+        print(error.message + " Until then only days already in the cache can be looked up.")
+    else:
+        print("Opening connections to NASA, which takes a few seconds.")
+        warm.clear()
+        Thread(target=warm_up, daemon=True).start()
+    print("Press Ctrl+C to stop.", flush=True)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
